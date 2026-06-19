@@ -1,0 +1,45 @@
+{
+	"name": "pluton-diagram-cli",
+	"version": "1.0.1",
+	"description": "CLI tool to generate diagrams from JSON files",
+	"main": "cli.js",
+	"bin": {
+		"pluton-diagram-gen": "./cli.js"
+	},
+	"scripts": {
+		"start": "node cli.js",
+		"test": "node cli.js generate examples/sample.json output.svg",
+		"prepublishOnly": "npm test"
+	},
+	"keywords": [
+		"diagram",
+		"generator",
+		"cli",
+		"state-machine",
+		"flowchart",
+		"svg",
+		"png"
+	],
+	"author": "Your Name <your.email@example.com>",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/genichiro-tower/pluton-diagrams-cli"
+	},
+	"bugs": {
+		"url": "https://github.com/genichiro-tower/pluton-diagrams-cli/issues"
+	},
+	"homepage": "https://github.com/genichiro-tower/pluton-diagrams-cli#readme",
+	"engines": {
+		"node": ">=14.0.0"
+	},
+	"dependencies": {
+		"sharp": "^0.33.0",
+		"commander": "^11.1.0",
+		"chalk": "^4.1.2",
+		"ora": "^5.4.1"
+	},
+	"devDependencies": {
+		"nodemon": "^3.0.1"
+	}
+}

@@ -1,0 +1,132 @@
+{
+	"title": "Workflow Example",
+	"description": "A sample state diagram",
+	"version": "1.0",
+	"states": [
+		{
+			"id": "start",
+			"label": "Start",
+			"type": "regular"
+		},
+		{
+			"id": "process",
+			"label": "Process Data",
+			"type": "regular"
+		},
+		{
+			"id": "validate",
+			"label": "Validation",
+			"type": "regular"
+		},
+		{
+			"id": "error",
+			"label": "Error Handler",
+			"type": "stall"
+		},
+		{
+			"id": "retry",
+			"label": "Retry",
+			"type": "stall"
+		},
+		{
+			"id": "complete",
+			"label": "Complete",
+			"type": "terminal"
+		}
+	],
+	"transitions": [
+		{
+			"id": "t1",
+			"from": "start",
+			"to": "process",
+			"label": "Init",
+			"note": "Start processing the data"
+		},
+		{
+			"id": "t2",
+			"from": "process",
+			"to": "validate",
+			"label": "Ready",
+			"note": "Data is ready for validation"
+		},
+		{
+			"id": "t3",
+			"from": "validate",
+			"to": "complete",
+			"label": "Valid",
+			"note": "All validation checks passed successfully"
+		},
+		{
+			"id": "t4",
+			"from": "validate",
+			"to": "error",
+			"label": "Invalid",
+			"note": "Validation failed due to data errors"
+		},
+		{
+			"id": "t5",
+			"from": "error",
+			"to": "retry",
+			"label": "Recover",
+			"note": "Attempting to recover from error"
+		},
+		{
+			"id": "t6",
+			"from": "retry",
+			"to": "validate",
+			"label": "Retry",
+			"note": "Retrying the validation process"
+		},
+		{
+			"id": "t7",
+			"from": "retry",
+			"to": "complete",
+			"label": "Give up",
+			"note": "Max retries exceeded"
+		}
+	],
+	"defaults": {
+		"state": {
+			"type": "regular",
+			"color": "#2d2d2d",
+			"width": 160,
+			"height": 70,
+			"borderRadius": 8,
+			"borderColor": "#666666",
+			"borderWidth": 2,
+			"fontSize": 14,
+			"fontFamily": "Arial",
+			"fontWeight": "bold"
+		},
+		"terminal": {
+			"color": "#c62828",
+			"borderColor": "#ef5350"
+		},
+		"stall": {
+			"color": "#1565c0",
+			"borderColor": "#42a5f5"
+		},
+		"transition": {
+			"arrowStyle": "solid",
+			"color": "#888888",
+			"lineWidth": 2,
+			"fontSize": 11,
+			"fontFamily": "Arial",
+			"noteFontSize": 10,
+			"noteColor": "#999999"
+		}
+	},
+	"layout": {
+		"algorithm": "hierarchical",
+		"direction": "horizontal",
+		"spacingX": 350,
+		"spacingY": 250,
+		"padding": 80,
+		"arrowCurve": 60,
+		"noteOffset": 35
+	},
+	"style": {
+		"background": "#1e1e1e",
+		"fontFamily": "Arial, sans-serif"
+	}
+}
