@@ -8,11 +8,10 @@ const ora = require('ora');
 const sharp = require('sharp');
 
 // ============================================================
-// SVG GENERATOR - Fixed Text Scaling
+// SVG GENERATOR
 // ============================================================
-const text_scale = 1.0;
 class DiagramSVGGenerator {
-	constructor(width, height, diagramData, positions = null) {
+	constructor(width, height, diagramData, positions = null, textScale = 1.0) {
 		this.width = width;
 		this.height = height;
 		this.data = diagramData;
@@ -25,17 +24,14 @@ class DiagramSVGGenerator {
 		this._scale = 1;
 		this._offsetX = 0;
 		this._offsetY = 0;
-		this._baseSize = 1000; // Base size for layout calculation
+		this._baseSize = 1000;
+		this._textScale = textScale || 1.0;
 
-		// Calculate layout first (without scaling)
 		this.calculateLayout();
-
-		// Then fit to canvas
 		this.fitToCanvas();
 	}
 
 	fitToCanvas() {
-		// Calculate bounds of all elements
 		let minX = Infinity,
 			minY = Infinity,
 			maxX = -Infinity,
@@ -48,7 +44,6 @@ class DiagramSVGGenerator {
 			maxY = Math.max(maxY, pos.y + pos.height);
 		}
 
-		// Also check transition control points
 		for (const t of this._transitions) {
 			const fromPos = this.statePositions[t.from];
 			const toPos = this.statePositions[t.to];
@@ -74,7 +69,6 @@ class DiagramSVGGenerator {
 			maxY = Math.max(maxY, cpY);
 		}
 
-		// Add padding
 		const padding = 80;
 		minX -= padding;
 		minY -= padding;
@@ -84,16 +78,13 @@ class DiagramSVGGenerator {
 		const diagramWidth = maxX - minX;
 		const diagramHeight = maxY - minY;
 
-		// Calculate scale to fit the canvas (with some margin)
 		const scaleX = this.width / diagramWidth;
 		const scaleY = this.height / diagramHeight;
-		this._scale = Math.min(scaleX, scaleY) * 0.9; // 90% to leave margin
+		this._scale = Math.min(scaleX, scaleY) * 0.9;
 
-		// Calculate offset to center the diagram
 		this._offsetX = (this.width - diagramWidth * this._scale) / 2 - minX * this._scale;
 		this._offsetY = (this.height - diagramHeight * this._scale) / 2 - minY * this._scale;
 
-		// Apply scaling to all positions
 		for (const [id, pos] of Object.entries(this.statePositions)) {
 			pos.x = pos.x * this._scale + this._offsetX;
 			pos.y = pos.y * this._scale + this._offsetY;
@@ -111,14 +102,12 @@ class DiagramSVGGenerator {
 		const layout = this.data.layout || {};
 		const padding = layout.padding || 80;
 
-		// Use a base size for calculation
 		const baseWidth = 1000;
 		const baseHeight = 800;
 
 		const defaultWidth = this.data.defaults?.state?.width || 160;
 		const defaultHeight = this.data.defaults?.state?.height || 70;
 
-		// Build graph
 		const adj = {};
 		const inDegree = {};
 		const stateMap = {};
@@ -136,11 +125,9 @@ class DiagramSVGGenerator {
 			}
 		});
 
-		// Find roots
 		const roots = states.filter((s) => inDegree[s.id] === 0);
 		const startNodes = roots.length > 0 ? roots.map((r) => r.id) : [states[0].id];
 
-		// BFS to assign levels
 		const levels = {};
 		const visited = new Set();
 		const queue = startNodes.map((id) => ({ id, level: 0 }));
@@ -169,7 +156,6 @@ class DiagramSVGGenerator {
 			});
 		}
 
-		// Group by level
 		const levelGroups = {};
 		states.forEach((s) => {
 			const lvl = levels[s.id] !== undefined ? levels[s.id] : maxLevel + 1;
@@ -181,7 +167,6 @@ class DiagramSVGGenerator {
 		const numLevels = levelKeys.length;
 		const maxStatesInLevel = Math.max(...Object.values(levelGroups).map((arr) => arr.length));
 
-		// Calculate spacing - scale based on number of levels
 		const spacingX = Math.max(300, Math.min(450, (baseWidth - 200) / Math.max(numLevels, 1)));
 		const spacingY = Math.max(
 			200,
@@ -194,7 +179,6 @@ class DiagramSVGGenerator {
 		const startX = Math.max(padding, (baseWidth - diagramWidth) / 2);
 		const startY = Math.max(padding, (baseHeight - diagramHeight) / 2);
 
-		// Order states to minimize crossings
 		const orderedLevels = {};
 		if (levelKeys.length > 0) {
 			const firstLevel = levelKeys[0];
@@ -225,7 +209,6 @@ class DiagramSVGGenerator {
 			orderedLevels[currentLevel] = nodeScores.map((item) => item.nodeId);
 		}
 
-		// Place states
 		this.statePositions = {};
 		levelKeys.forEach((levelKey, li) => {
 			const nodeIds = orderedLevels[levelKey] || levelGroups[levelKey];
@@ -275,13 +258,8 @@ class DiagramSVGGenerator {
 		svg += `</filter>`;
 		svg += `</defs>`;
 		svg += `<rect width="100%" height="100%" fill="${bgColor}"/>`;
-
-		// Draw transitions
 		svg += this.generateTransitionSVG();
-
-		// Draw states
 		svg += this.generateStateSVG();
-
 		svg += '</svg>';
 		return svg;
 	}
@@ -309,13 +287,11 @@ class DiagramSVGGenerator {
 			}
 			if (stateData.color) bgColor = stateData.color;
 
-			// Scale all size-related properties
 			const borderRadius = Math.max(2, (defaults.borderRadius || 8) * this._scale);
 			const borderWidth = Math.max(0.5, (defaults.borderWidth || 2) * this._scale);
 
-			// Text size - scale with the diagram, but keep it readable
 			const baseFontSize = defaults.fontSize || 14;
-			const fontSize = baseFontSize * this._scale * text_scale; // Slightly larger for readability
+			const fontSize = Math.max(8, baseFontSize * this._scale * this._textScale);
 			const fontWeight = defaults.fontWeight || 'bold';
 			const fontFamily = defaults.fontFamily || 'Arial';
 
@@ -324,12 +300,10 @@ class DiagramSVGGenerator {
 				w = pos.width,
 				h = pos.height;
 
-			// Rounded rectangle with shadow
 			svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${borderRadius}"`;
 			svg += ` fill="${bgColor}" stroke="${borderColor}" stroke-width="${borderWidth}"`;
 			svg += ` filter="url(#shadow)"/>`;
 
-			// Text with wrapping
 			const textColor = this.getContrastColor(bgColor);
 			const label = stateData.label || id;
 			const maxWidth = w - 20;
@@ -346,7 +320,6 @@ class DiagramSVGGenerator {
 				svg += `</text>`;
 			});
 
-			// Type indicator - scale icon size
 			const iconSize = Math.max(10, 12 * this._scale);
 			if (type === 'terminal') {
 				svg += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" dominant-baseline="bottom"`;
@@ -365,12 +338,11 @@ class DiagramSVGGenerator {
 		const defaults = this._defaults.transition || {};
 		const arrowColor = defaults.color || '#888888';
 
-		// Scale transition properties
 		const baseLineWidth = defaults.lineWidth || 2;
 		const lineWidth = Math.max(0.5, baseLineWidth * this._scale);
 
 		const baseFontSize = defaults.fontSize || 11;
-		const fontSize = baseFontSize * this._scale * text_scale;
+		const fontSize = Math.max(7, baseFontSize * this._scale * this._textScale);
 		const fontFamily = defaults.fontFamily || 'Arial';
 
 		const arrowCurve = 60 * this._scale;
@@ -397,7 +369,6 @@ class DiagramSVGGenerator {
 
 			const color = t.color || arrowColor;
 
-			// Draw the curved line
 			svg += `<path d="M ${fromX} ${fromY} Q ${cpX} ${cpY} ${toX} ${toY}"`;
 			svg += ` stroke="${color}" stroke-width="${lineWidth}" fill="none"`;
 
@@ -409,10 +380,8 @@ class DiagramSVGGenerator {
 			}
 			svg += ` />`;
 
-			// Draw chevron - scale size
 			svg += this.generateChevronSVG(fromX, fromY, cpX, cpY, toX, toY, color);
 
-			// Draw label with rotated background
 			if (t.label) {
 				const t_pos = 0.4;
 				const labelX =
@@ -436,23 +405,19 @@ class DiagramSVGGenerator {
 
 				const labelColor = t.color || arrowColor;
 
-				// Measure text for background
 				const charWidth = fontSize * 0.6;
 				const textWidth = t.label.length * charWidth;
-				const padding = 12 * this._scale;
+				const padding = Math.max(8, 12 * this._scale);
 				const tw = textWidth + padding * 2;
 				const th = fontSize + padding;
 
-				// Rotate the entire group (background + text)
 				const angleDeg = (angle * 180) / Math.PI;
 				svg += `<g transform="translate(${finalX}, ${finalY}) rotate(${angleDeg})">`;
 
-				// Background
 				const bgRadius = Math.max(2, 4 * this._scale);
 				svg += `<rect x="${-tw / 2}" y="${-th / 2}" width="${tw}" height="${th}" rx="${bgRadius}"`;
 				svg += ` fill="rgba(30,30,30,0.9)" stroke="rgba(255,255,255,0.15)" stroke-width="${Math.max(0.5, this._scale)}"/>`;
 
-				// Label text
 				svg += `<text x="0" y="0" text-anchor="middle" dominant-baseline="middle"`;
 				svg += ` fill="${labelColor}" font-family="${fontFamily}" font-size="${fontSize}">`;
 				svg += this.escapeSVG(t.label);
@@ -473,7 +438,6 @@ class DiagramSVGGenerator {
 		const tangentY = 2 * (1 - t) * (cpY - fromY) + 2 * t * (toY - cpY);
 		const angle = Math.atan2(tangentY, tangentX);
 
-		// Scale chevron size
 		const size = Math.max(4, 10 * this._scale);
 		const spread = 0.6;
 
@@ -525,34 +489,9 @@ class DiagramSVGGenerator {
 		return brightness > 128 ? '#000000' : '#FFFFFF';
 	}
 
-	async saveToFile(outputPath, format = 'png') {
+	async saveToFile(outputPath, format = 'svg') {
 		const svg = this.generateSVG();
-
-		// Save SVG for debugging
-		const svgPath = outputPath.replace(/\.[^.]+$/, '.svg');
-		fs.writeFileSync(svgPath, svg);
-
-		const buffer = Buffer.from(svg);
-
-		if (format === 'svg') {
-			fs.writeFileSync(outputPath, buffer);
-			return outputPath;
-		}
-
-		try {
-			const image = sharp(buffer, { density: 300 });
-
-			if (format === 'png') {
-				await image.png().toFile(outputPath);
-			} else if (format === 'jpg' || format === 'jpeg') {
-				await image.jpeg({ quality: 95 }).toFile(outputPath);
-			}
-		} catch (error) {
-			console.error(chalk.red('Sharp conversion error:'), error.message);
-			console.log(chalk.yellow('Falling back to saving SVG file only...'));
-			return svgPath;
-		}
-
+		fs.writeFileSync(outputPath, svg);
 		return outputPath;
 	}
 }
@@ -566,71 +505,178 @@ program.name('diagram-gen').description('Generate diagrams from JSON files').ver
 program
 	.command('generate')
 	.alias('g')
-	.description('Generate a diagram from a JSON file')
-	.argument('<input>', 'Input JSON file path')
-	.argument('[output]', 'Output image file path (default: output.png)')
+	.description('Generate a diagram from a JSON file or folder')
+	.argument('<input>', 'Input JSON file or folder path')
+	.argument('[output]', 'Output file or folder path (optional)')
 	.option('-w, --width <number>', 'Image width in pixels', '1920')
 	.option('-h, --height <number>', 'Image height in pixels', '1080')
 	.option('-f, --format <format>', 'Output format (png, jpg, svg)', 'svg')
-	.option('-p, --positions <file>', 'JSON file with state positions')
+	.option('-t, --text-scale <number>', 'Text size multiplier (0.3-2.0)', '1.0')
+	.option('-p, --positions <file>', 'JSON file with state positions (for single file only)')
 	.option('-q, --quiet', 'Suppress progress output')
 	.action(async (input, output, options) => {
-		const spinner = ora('Loading diagram...').start();
+		const spinner = ora('Processing...').start();
 
 		try {
-			const inputContent = fs.readFileSync(input, 'utf8');
-			let diagramData;
-			let positions = null;
+			const stats = fs.statSync(input);
+			const isDirectory = stats.isDirectory();
 
-			try {
-				const parsed = JSON.parse(inputContent);
-				if (parsed.type === 'diagram_export') {
-					diagramData = parsed.json;
-					positions = parsed.positions || null;
+			if (isDirectory) {
+				// ============================================================
+				// FOLDER MODE - Process all .diagram.json files
+				// ============================================================
+				const files = fs.readdirSync(input).filter((f) => f.endsWith('.diagram.json'));
+
+				if (files.length === 0) {
+					spinner.fail(chalk.yellow(`No .diagram.json files found in ${input}`));
+					return;
+				}
+
+				spinner.text = `Found ${files.length} diagram files`;
+
+				const outputDir = output || input;
+				if (!fs.existsSync(outputDir)) {
+					fs.mkdirSync(outputDir, { recursive: true });
+				}
+
+				const results = [];
+				const format = options.format.toLowerCase();
+				const width = parseInt(options.width);
+				const height = parseInt(options.height);
+				const textScale = parseFloat(options.textScale);
+
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					const inputPath = path.join(input, file);
+					const baseName = path.basename(file, '.diagram.json');
+					const outputPath = path.join(outputDir, `${baseName}.svg`);
+
 					if (!options.quiet) {
-						spinner.text = `Loaded exported diagram: ${parsed.name || 'unnamed'}`;
+						spinner.text = `Generating ${chalk.cyan(file)} (${i + 1}/${files.length})`;
 					}
-				} else {
-					diagramData = parsed;
-					if (!options.quiet) {
-						spinner.text = 'Loaded raw diagram JSON';
+
+					try {
+						const content = fs.readFileSync(inputPath, 'utf8');
+						const data = JSON.parse(content);
+
+						let diagramData, positions;
+						if (data.type === 'diagram_export') {
+							diagramData = data.json;
+							positions = data.positions || null;
+						} else {
+							diagramData = data;
+							positions = null;
+						}
+
+						if (!diagramData.states) {
+							throw new Error('Invalid diagram: missing "states" array');
+						}
+
+						const generator = new DiagramSVGGenerator(
+							width,
+							height,
+							diagramData,
+							positions,
+							textScale,
+						);
+						await generator.saveToFile(outputPath, format);
+
+						results.push({
+							file: file,
+							output: outputPath,
+							status: 'success',
+						});
+					} catch (err) {
+						results.push({
+							file: file,
+							status: 'error',
+							error: err.message,
+						});
 					}
 				}
-			} catch (e) {
-				throw new Error('Invalid JSON file');
-			}
 
-			if (options.positions) {
-				const posContent = fs.readFileSync(options.positions, 'utf8');
-				positions = JSON.parse(posContent);
-			}
+				spinner.succeed(
+					chalk.green(
+						`✓ Generated ${results.filter((r) => r.status === 'success').length}/${files.length} diagrams`,
+					),
+				);
 
-			const outputPath = output || 'output.png';
-			const format = options.format.toLowerCase();
-			const width = parseInt(options.width);
-			const height = parseInt(options.height);
+				if (!options.quiet) {
+					console.log(chalk.bold('\n📊 Results:'));
+					results.forEach((r) => {
+						if (r.status === 'success') {
+							console.log(
+								`  ${chalk.green('✓')} ${r.file} → ${path.basename(r.output)}`,
+							);
+						} else {
+							console.log(`  ${chalk.red('✗')} ${r.file}: ${r.error}`);
+						}
+					});
+				}
+			} else {
+				// ============================================================
+				// FILE MODE - Generate single diagram
+				// ============================================================
+				const inputContent = fs.readFileSync(input, 'utf8');
+				let diagramData;
+				let positions = null;
 
-			if (!diagramData.states) {
-				throw new Error('Diagram data must contain "states" array');
-			}
+				try {
+					const parsed = JSON.parse(inputContent);
+					if (parsed.type === 'diagram_export') {
+						diagramData = parsed.json;
+						positions = parsed.positions || null;
+						if (!options.quiet) {
+							spinner.text = `Loaded exported diagram: ${parsed.name || 'unnamed'}`;
+						}
+					} else {
+						diagramData = parsed;
+						if (!options.quiet) {
+							spinner.text = 'Loaded raw diagram JSON';
+						}
+					}
+				} catch (e) {
+					throw new Error('Invalid JSON file');
+				}
 
-			spinner.text = 'Generating diagram...';
+				if (options.positions) {
+					const posContent = fs.readFileSync(options.positions, 'utf8');
+					positions = JSON.parse(posContent);
+				}
 
-			const generator = new DiagramSVGGenerator(width, height, diagramData, positions);
-			const result = await generator.saveToFile(outputPath, format);
+				const outputPath =
+					output || input.replace(/\.diagram\.json$/, '.svg').replace(/\.json$/, '.svg');
+				const format = options.format.toLowerCase();
+				const width = parseInt(options.width);
+				const height = parseInt(options.height);
+				const textScale = parseFloat(options.textScale);
 
-			spinner.succeed(chalk.green(`✓ Diagram saved to ${chalk.bold(result)}`));
+				if (!diagramData.states) {
+					throw new Error('Diagram data must contain "states" array');
+				}
 
-			if (!options.quiet) {
-				const stats = fs.statSync(result);
-				console.log(chalk.gray(`  Resolution: ${width}x${height}`));
-				console.log(chalk.gray(`  Format: ${format.toUpperCase()}`));
-				console.log(chalk.gray(`  File size: ${(stats.size / 1024).toFixed(1)} KB`));
-				console.log(chalk.gray(`  States: ${diagramData.states.length}`));
-				console.log(chalk.gray(`  Transitions: ${(diagramData.transitions || []).length}`));
-				if (format !== 'svg') {
+				spinner.text = 'Generating diagram...';
+
+				const generator = new DiagramSVGGenerator(
+					width,
+					height,
+					diagramData,
+					positions,
+					textScale,
+				);
+				const result = await generator.saveToFile(outputPath, format);
+
+				spinner.succeed(chalk.green(`✓ Diagram saved to ${chalk.bold(result)}`));
+
+				if (!options.quiet) {
+					const stats = fs.statSync(result);
+					console.log(chalk.gray(`  Resolution: ${width}x${height}`));
+					console.log(chalk.gray(`  Format: ${format.toUpperCase()}`));
+					console.log(chalk.gray(`  Text Scale: ${textScale}x`));
+					console.log(chalk.gray(`  File size: ${(stats.size / 1024).toFixed(1)} KB`));
+					console.log(chalk.gray(`  States: ${diagramData.states.length}`));
 					console.log(
-						chalk.gray(`  SVG debug: ${outputPath.replace(/\.[^.]+$/, '.svg')}`),
+						chalk.gray(`  Transitions: ${(diagramData.transitions || []).length}`),
 					);
 				}
 			}

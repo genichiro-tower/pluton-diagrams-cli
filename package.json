@@ -1,6 +1,6 @@
 {
 	"name": "pluton-diagram-cli",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "CLI tool to generate diagrams from JSON files",
 	"main": "cli.js",
 	"bin": {
@@ -8,7 +8,7 @@
 	},
 	"scripts": {
 		"start": "node cli.js",
-		"test": "node cli.js generate examples/sample.json output.svg",
+		"test": "node cli.js generate examples",
 		"prepublishOnly": "npm test"
 	},
 	"keywords": [
